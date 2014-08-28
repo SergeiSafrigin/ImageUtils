@@ -11,11 +11,11 @@ public class ImageConfig {
 	private DistanceType distanceType;
 	private Device device;
 	private Camera camera;
-	private float hAngle, vAngle;
+	private double hAngle, vAngle;
 	private int height, width;
 	
 	public ImageConfig(DistanceType distanceType, Device device, Camera camera,
-			float hAngle, float vAngle, int height, int width) {
+			double hAngle, double vAngle, int height, int width) {
 		this.distanceType = distanceType;
 		this.device = device;
 		this.camera = camera;
@@ -49,19 +49,19 @@ public class ImageConfig {
 		this.camera = camera;
 	}
 
-	public float gethAngle() {
+	public double gethAngle() {
 		return hAngle;
 	}
 
-	public void sethAngle(float hAngle) {
+	public void sethAngle(double hAngle) {
 		this.hAngle = hAngle;
 	}
 
-	public float getvAngle() {
+	public double getvAngle() {
 		return vAngle;
 	}
 
-	public void setvAngle(float vAngle) {
+	public void setvAngle(double vAngle) {
 		this.vAngle = vAngle;
 	}
 

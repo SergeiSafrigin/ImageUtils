@@ -55,7 +55,7 @@ public class VisualOdometryFilter {
 		return cloneList;
 	}
 
-	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
 		GeometryLight mainLight = null;
 		Point3d newLocation = new Point3d();
 
@@ -138,7 +138,7 @@ public class VisualOdometryFilter {
 		}
 	}
 
-	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
 		Point3d newLocation = new Point3d();
 
 		Collections.sort(visualLightsList, lightComparator);
