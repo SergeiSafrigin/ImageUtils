@@ -8,7 +8,6 @@ import android.graphics.Color;
 import kcg.core.light.ImageConfig;
 import kcg.core.light.VisualLight;
 
-
 public class LightFilter {
 	private static final String TAG = "LightFilter";
 	private static final int BLACK = Color.BLACK;
@@ -275,5 +274,17 @@ public class LightFilter {
 		if (x < 0 || x >= width || y < 0 || y >= height)
 			return false;
 		return true;
+	}
+
+	public int[] getEdgePixelsX() {
+		return edgePixelsX;
+	}
+
+	public int[] getEdgePixelsY() {
+		return edgePixelsY;
+	}
+
+	public int getEdgePixelsFound() {
+		return edgePixelsFound;
 	}
 }

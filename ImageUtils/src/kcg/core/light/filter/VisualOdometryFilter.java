@@ -11,8 +11,8 @@ import kcg.core.light.VisualLight;
 
 public class VisualOdometryFilter {
 	private static final String TAG = "LightFilter";
-	private static final int maxDistanceForRegistration = 50;
-	private static final int maxMassCenterDistanceForRegistration = 20;
+	private static final int maxDistanceForRegistration = 10;
+	private static final int maxMassCenterDistanceForRegistration = 10;
 
 	private ArrayList<GeometryLight> lastFrameLights;
 	private ArrayList<GeometryLight> geometryLightsList;
@@ -55,7 +55,7 @@ public class VisualOdometryFilter {
 		return cloneList;
 	}
 
-	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
 		GeometryLight mainLight = null;
 		Point3d newLocation = new Point3d();
 
@@ -75,14 +75,9 @@ public class VisualOdometryFilter {
 				if (distance > maxDistanceForRegistration && 
 						pixelDistance(visualLight, lastFrameLight) > maxMassCenterDistanceForRegistration)
 					continue;
-				double badScore = distance*100;
-				//				badScore += Math.abs(visualLight.numOfEdgePixels - lastFrameLight.numOfEdgePixels)*100;
-				//				badScore += Math.abs(visualLight.numOfPixels - lastFrameLight.numOfPixels)*10;
-				//				badScore += Math.abs(visualLight.x - lastFrameLight.x);
-				//				badScore += Math.abs(visualLight.y - lastFrameLight.y);
 
-				if (badScore < minBadScore){
-					minBadScore = badScore;
+				if (distance < minBadScore){
+					minBadScore = distance;
 					id = j;
 				}
 
@@ -138,7 +133,7 @@ public class VisualOdometryFilter {
 		}
 	}
 
-	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
 		Point3d newLocation = new Point3d();
 
 		Collections.sort(visualLightsList, lightComparator);
