@@ -12,6 +12,7 @@ import kcg.core.light.VisualLight;
 public class VisualOdometryFilter {
 	private static final String TAG = "LightFilter";
 	private static final int maxDistanceForRegistration = 10;
+	private static final int maxPixelDistanceForRegistration = 30;
 	private static final int maxMassCenterDistanceForRegistration = 10;
 
 	private ArrayList<GeometryLight> lastFrameLights;
@@ -21,7 +22,7 @@ public class VisualOdometryFilter {
 	private Point3d location;
 
 	private int generatedNames;
-	
+
 	private ImageConfig config;
 
 	public VisualOdometryFilter(ImageConfig config){
@@ -71,24 +72,28 @@ public class VisualOdometryFilter {
 				GeometryLight lastFrameLight = lastFrameLights.get(j);
 				if (lastFrameLight == null)
 					continue;
-				double distance = geometryLight.location.distance(lastFrameLight.location);
-				if (distance > maxDistanceForRegistration && 
-						pixelDistance(visualLight, lastFrameLight) > maxMassCenterDistanceForRegistration)
-					continue;
-
+				
+				double distance;
+				
+				if (config.getCamera() == ImageConfig.Camera.FRONT){
+					distance = pixelDistance(visualLight, lastFrameLight);
+					if (distance > maxPixelDistanceForRegistration)
+						continue;
+				} else {
+					distance = geometryLight.location.distance(lastFrameLight.location);
+					if (distance > maxDistanceForRegistration && 
+							pixelDistance(visualLight, lastFrameLight) > maxMassCenterDistanceForRegistration)
+						continue;
+				}
+				
 				if (distance < minBadScore){
 					minBadScore = distance;
 					id = j;
 				}
-
 			}
 
 			if (id != -1){
 				geometryLight.register(lastFrameLights.get(id));
-				//				if (geometryLight.mainLight)
-				//					mainLight = geometryLight;
-				//				if (geometryLight.mainLight)
-				//					geometryLight.updateUserLocationFromLight(newLocation, yaw, pitch);
 				lastFrameLights.set(id, null);
 			} else 
 				geometryLight.registrationId = generateName();
