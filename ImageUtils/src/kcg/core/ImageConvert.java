@@ -1,9 +1,46 @@
 package kcg.core;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
+
 import android.graphics.Bitmap;
 
 
 public class ImageConvert {
-	
+
+	/**
+	 * converts any type of buffered image to ARGB type
+	 * @param src the buffered image we want to convert
+	 * @return the converted buffered image
+	 */
+	public static BufferedImage AnyBufferedToARGBBuffered(BufferedImage src){
+		BufferedImage newImage = new BufferedImage(src.getWidth(), src.getHeight(),
+				BufferedImage.TYPE_INT_ARGB);
+
+		Graphics2D newImageGraphics = newImage.createGraphics();
+		newImageGraphics.drawImage(src, 0, 0, null);
+		return newImage;
+	}
+
+
+	public static BufferedImage JPEGToBufferedImage(byte[] src){
+		ByteArrayInputStream bis = new ByteArrayInputStream(src);
+
+		BufferedImage bufferedImage = null;
+		try {
+			bufferedImage = ImageIO.read(bis);
+			bis.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return bufferedImage;
+	}
+
+
 	/**
 	 * 
 	 * @param src
@@ -12,12 +49,12 @@ public class ImageConvert {
 	 * @param height
 	 * @return
 	 */
-	
+
 	public static Bitmap ArrayToBitmap(int[] src, Bitmap bitmap, int width, int height){
 		bitmap.setPixels(src, 0, width, 0, 0, width, height);
 		return bitmap;
 	}
-	
+
 	/**
 	 * 
 	 * @param src
@@ -34,7 +71,7 @@ public class ImageConvert {
 		}
 		return bitmap;
 	}
-	
+
 	/**
 	 * 
 	 * @param src
@@ -74,7 +111,7 @@ public class ImageConvert {
 		}
 		return dst;
 	}
-	
+
 	/**
 	 * 
 	 * @param src
@@ -85,7 +122,7 @@ public class ImageConvert {
 	 */
 	public static int[] NV21TORGB(byte[] src, int[] dst, int width, int height){
 		final int frameSize = width * height;
-		
+
 		if (dst == null)
 			dst = new int[width*height];
 

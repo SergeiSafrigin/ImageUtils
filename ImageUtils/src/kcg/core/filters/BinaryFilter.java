@@ -52,4 +52,21 @@ public class BinaryFilter {
 	    }
 	    return dst;
 	}
+	
+	public static int[] RGB_TO_BINARY(int[] src, int[] dst, int threshold, int width, int height) {
+		int p;
+		int level;
+	    int size = width*height;
+	    for(int i = 0; i < size; i++) {
+	        p = src[i] & 0xFF;	        
+	        dst[i] = 0xff000000 | p<<16 | p<<8 | p;
+			
+			level = dst[i] & 0xff;
+			if (level >= threshold)
+				dst[i] = WHITE;
+			else
+				dst[i] = BLACK;
+	    }
+	    return dst;
+	}
 }
