@@ -48,7 +48,7 @@ public class ImageRotate {
 		
 		switch (rotation){
 		case 0:
-			dst = src.clone();
+			System.arraycopy(src, 0, dst, 0, dst.length);
 			break;
 			
 		case 90:
@@ -96,7 +96,7 @@ public class ImageRotate {
 		
 		switch (rotation){
 		case 0:
-			dst = src.clone();
+			System.arraycopy(src, 0, dst, 0, dst.length);
 			break;
 			
 		case 90:
