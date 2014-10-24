@@ -1,6 +1,7 @@
 package kcg.core.light;
 
 
+
 public class GeometryLight extends VisualLight {
 	private static final long serialVersionUID = 8220238100284829762L;
 	private static final String TAG = "GeometryLightFilter";
@@ -15,12 +16,12 @@ public class GeometryLight extends VisualLight {
 	
 	private ImageConfig config;
 		
-	public GeometryLight(ImageConfig config, VisualLight visualLight, Point3d userLocation, float yaw, float pitch){
+	public GeometryLight(ImageConfig config, VisualLight visualLight, Point3d userLocation, float yaw, float pitch, float roll){
 		super(config, visualLight);
 		this.config = config;
 		location = new Point3d();
 		calcDistance();
-		calcLocation(userLocation, yaw, pitch);
+		calcLocation(userLocation, yaw, pitch, roll);
 	}
 	
 	public GeometryLight(ImageConfig config, GeometryLight geometryLight){
@@ -33,7 +34,6 @@ public class GeometryLight extends VisualLight {
 		this.distance = geometryLight.distance;
 		this.yaw = geometryLight.yaw;
 		this.pitch = geometryLight.pitch;
-//		mainLight = geometryLight.mainLight;
 	}
 	
 	public void register(GeometryLight light){
@@ -41,8 +41,6 @@ public class GeometryLight extends VisualLight {
 		registeredFrames = light.registeredFrames+1;
 		unregisteredFrames = 0;
 		location = light.location;
-//		if (goodForLocation())
-//			mainLight = light.mainLight;
 	}
 
 	public boolean unregister(){
@@ -52,11 +50,11 @@ public class GeometryLight extends VisualLight {
 		return false;
 	}
 
-	public void calcLocation(Point3d userLocation,float yaw, float pitch){
-		this.yaw = getYawFromLight(yaw, pitch);
-		this.pitch = getPitchFromLight(pitch);
+	public void calcLocation(Point3d userLocation, float yaw, float pitch, float roll){
+		this.yaw = getYawFromLight(yaw, pitch, roll);
+		this.pitch = getPitchFromLight(pitch, roll);
 		
-		double rYaw = Math.toRadians(this.yaw);
+		double rYaw = Math.toRadians(this.yaw);		
 		double rPitch = Math.toRadians(this.pitch);
 		
 		double z = distance * Math.sin(rPitch);
@@ -66,12 +64,15 @@ public class GeometryLight extends VisualLight {
 		double y = r * Math.cos(rYaw);
 
 		location.set(userLocation.x + x, userLocation.y + y, userLocation.z + z);
+		
+		if (this.pitch > 180)
+			this.pitch -= 360;
 	}
 
-	public void updateUserLocationFromLight(Point3d newLocation, float yaw, float pitch){
+	public void updateUserLocationFromLight(Point3d newLocation, float yaw, float pitch, float roll){
 		if (goodForLocation()){	
-			double rYaw = Math.toRadians(getYawFromLight(yaw, pitch));
-			double rPitch = Math.toRadians(getPitchFromLight(pitch));
+			double rYaw = Math.toRadians(getYawFromLight(yaw, pitch, roll));
+			double rPitch = Math.toRadians(getPitchFromLight(pitch, roll));
 			double z = distance * Math.sin(rPitch);
 			double r = distance * Math.cos(rPitch);
 			
@@ -82,18 +83,23 @@ public class GeometryLight extends VisualLight {
 		}
 	}
 
-	public double getYawFromLight(float yaw, float pitch){
+	public double getYawFromLight(float yaw, float pitch, float roll){
 		double angle;
 		
 		if (config.getCamera() == ImageConfig.Camera.FRONT){
-			double y;
+			double anglePerPixel = config.getvAngle()/config.getHeight();
+			double pixelPerAngle = config.getHeight()/config.getvAngle();
+					
+//			pixelPerAngle = 3.6;
 			
-			if (pitch > 90)
-				y = this.y - (pitch - 90)*(config.getHeight()/config.getvAngle());
-			else 
-				y = this.y + (pitch - 90)*(config.getHeight()/config.getvAngle());
+			double shiftedY = y-((270-pitch)*pixelPerAngle);
+			shiftedY = Math.min(Math.max(0, shiftedY), config.getHeight());
 			
-			angle = (450 + yaw - Math.toDegrees(Math.atan2(config.getHeight()/2 - y, x - config.getWidth()/2)))%360;
+			double shiftedX = x + (roll * pixelPerAngle);
+			shiftedX = Math.min(Math.max(0, shiftedX), config.getWidth());
+			
+						
+			angle = (450 + yaw - Math.toDegrees(Math.atan2(config.getHeight()/2 - shiftedY, shiftedX - config.getWidth()/2)))%360;
 		} else 
 			angle = (yaw + (config.gethAngle()/config.getWidth())*(x - (config.getWidth()/2)))%360;
 		if (angle < 0)
@@ -101,7 +107,7 @@ public class GeometryLight extends VisualLight {
 		return angle;
 	}
 
-	public double getPitchFromLight(float pitch){
+	public double getPitchFromLight(float pitch, float roll){
 		double angle;
 		
 		if (config.getCamera() == ImageConfig.Camera.FRONT){
@@ -115,11 +121,25 @@ public class GeometryLight extends VisualLight {
 				fixedPitch = pitch + angle;
 			
 			angle = 90 - Math.abs(90 - fixedPitch);
+			
+			double anglePerPixel = config.getvAngle()/config.getHeight();
+			double pixelPerAngle = config.getHeight()/config.getvAngle();
+						
+			double shiftedY = y-((270-pitch)*pixelPerAngle);
+			shiftedY = Math.min(Math.max(0, shiftedY), config.getHeight());
+			
+			double shiftedX = x + (roll * pixelPerAngle);
+			shiftedX = Math.min(Math.max(0, shiftedX), config.getWidth());
+						
+			distance = Math.sqrt(Math.pow(shiftedX - (config.getWidth()/2), 2) + Math.pow(shiftedY - (config.getHeight()/2), 2));
+			
+			angle = 90 - (anglePerPixel * distance);	
 		}		
 		else
 			angle = (pitch + (config.getvAngle()/config.getHeight())*((config.getHeight()/2) - y))%360;
 		if (angle < 0)
 			angle = 360 + angle;
+		
 		return angle;
 	}
 

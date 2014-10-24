@@ -40,7 +40,7 @@ public class LightFilter {
 		edgePixelsX = new int[10000];
 		edgePixelsY = new int[10000];
 
-		lights = new VisualLight[200];
+		lights = new VisualLight[2000];
 		doubleIndexesLists = new ArrayList<HashSet<Integer>>();
 	}
 

@@ -44,19 +44,19 @@ public class VisualOdometryFilter {
 		geometryLightsList = new ArrayList<GeometryLight>();
 	}
 
-	public ArrayList<GeometryLight> process(ArrayList<VisualLight> visualListsList, float yaw, float pitch){
+	public ArrayList<GeometryLight> process(ArrayList<VisualLight> visualListsList, float yaw, float pitch, float roll){
 		emptyList = lastFrameLights;
 		lastFrameLights = geometryLightsList;
 		emptyList.clear();
 		geometryLightsList = emptyList;
 
-		registerLights(visualListsList, yaw, pitch);
+		registerLights(visualListsList, yaw, pitch, roll);
 
 		ArrayList<GeometryLight> cloneList = (ArrayList<GeometryLight>)geometryLightsList.clone();
 		return cloneList;
 	}
 
-	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch, float roll){
 		GeometryLight mainLight = null;
 		Point3d newLocation = new Point3d();
 
@@ -66,7 +66,7 @@ public class VisualOdometryFilter {
 			double minBadScore = Double.MAX_VALUE;
 			int id = -1;
 
-			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch);
+			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
 
 			for(int j = 0; j < lastFrameLights.size(); j++){
 				GeometryLight lastFrameLight = lastFrameLights.get(j);
@@ -112,7 +112,7 @@ public class VisualOdometryFilter {
 
 
 		if (mainLight != null){
-			mainLight.updateUserLocationFromLight(newLocation, yaw, pitch);
+			mainLight.updateUserLocationFromLight(newLocation, yaw, pitch, roll);
 			newLocation.calculateLocation();
 		}
 
@@ -123,7 +123,7 @@ public class VisualOdometryFilter {
 		for(int i = 0; i < geometryLightsList.size(); i++){
 			GeometryLight geometryLight = geometryLightsList.get(i);
 			if (geometryLight != null && mainLight != geometryLight)
-				geometryLight.calcLocation(location, yaw, pitch);
+				geometryLight.calcLocation(location, yaw, pitch, roll);
 		}
 
 		for(int i = 0; i < lastFrameLights.size(); i++){
@@ -138,7 +138,7 @@ public class VisualOdometryFilter {
 		}
 	}
 
-	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch){
+	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch, float roll){
 		Point3d newLocation = new Point3d();
 
 		Collections.sort(visualLightsList, lightComparator);
@@ -147,7 +147,7 @@ public class VisualOdometryFilter {
 			double minBadScore = Double.MAX_VALUE;
 			int id = -1;
 
-			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch);
+			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
 
 			for(int j = 0; j < lastFrameLights.size(); j++){
 				GeometryLight lastFrameLight = lastFrameLights.get(j);
@@ -173,7 +173,7 @@ public class VisualOdometryFilter {
 
 			if (id != -1){
 				geometryLight.register(lastFrameLights.get(id));
-				geometryLight.updateUserLocationFromLight(newLocation, yaw, pitch);
+				geometryLight.updateUserLocationFromLight(newLocation, yaw, pitch, roll);
 				lastFrameLights.set(id, null);
 			} else 
 				geometryLight.registrationId = generateName();
@@ -190,7 +190,7 @@ public class VisualOdometryFilter {
 		for(int i = 0; i < geometryLightsList.size(); i++){
 			GeometryLight geometryLight = geometryLightsList.get(i);
 			if (geometryLight != null)
-				geometryLight.calcLocation(location, yaw, pitch);
+				geometryLight.calcLocation(location, yaw, pitch, roll);
 		}
 
 		for(int i = 0; i < lastFrameLights.size(); i++){
