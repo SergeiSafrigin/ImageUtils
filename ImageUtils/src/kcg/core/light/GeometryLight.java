@@ -1,18 +1,18 @@
 package kcg.core.light;
 
-
-
 public class GeometryLight extends VisualLight {
 	private static final long serialVersionUID = 8220238100284829762L;
 	private static final String TAG = "GeometryLightFilter";
-	public int registrationId;
+	public int registrationId = -1;
+	public boolean usedForRegistration = false;
 	public Point3d location;
 	public int registeredFrames;
 	public int unregisteredFrames;
 	public double distance;
-	public double yaw;
-	public double pitch;
+	public double yaw, pitch;
+	private double mathYaw, mathPitch;
 	public boolean mainLight;
+	public double fixedX, fixedY;
 	
 	private ImageConfig config;
 		
@@ -20,8 +20,10 @@ public class GeometryLight extends VisualLight {
 		super(config, visualLight);
 		this.config = config;
 		location = new Point3d();
+		fixOrientationError(yaw, pitch, roll);
+		calcYaw(yaw, pitch, roll);
+		calcPitch(pitch, roll);
 		calcDistance();
-		calcLocation(userLocation, yaw, pitch, roll);
 	}
 	
 	public GeometryLight(ImageConfig config, GeometryLight geometryLight){
@@ -41,6 +43,7 @@ public class GeometryLight extends VisualLight {
 		registeredFrames = light.registeredFrames+1;
 		unregisteredFrames = 0;
 		location = light.location;
+		light.usedForRegistration = true;
 	}
 
 	public boolean unregister(){
@@ -50,111 +53,86 @@ public class GeometryLight extends VisualLight {
 		return false;
 	}
 
-	public void calcLocation(Point3d userLocation, float yaw, float pitch, float roll){
-		this.yaw = getYawFromLight(yaw, pitch, roll);
-		this.pitch = getPitchFromLight(pitch, roll);
-		
-		double rYaw = Math.toRadians(this.yaw);		
-		double rPitch = Math.toRadians(this.pitch);
-		
-		double z = distance * Math.sin(rPitch);
-		double r = distance * Math.cos(rPitch);
-		
-		double x = r * Math.sin(rYaw);
-		double y = r * Math.cos(rYaw);
+	public void updateUserLocationFromLight(Point3d userLocation){
+		double teta = mathPitch;
+		double pi = mathYaw;
+		double x = distance * Math.sin(teta) * Math.cos(pi);
+		double y = distance * Math.sin(teta) * Math.sin(pi);
+		double z = -(distance * Math.cos(teta));
+				
+		userLocation.set(location.x - x, location.y - y, location.z - z);
+	}
 
+	public void calcLocation(Point3d userLocation){		
+		double teta = mathPitch;
+		double pi = mathYaw;
+		double x = distance * Math.sin(teta) * Math.cos(pi);
+		double y = distance * Math.sin(teta) * Math.sin(pi);
+		double z = -(distance * Math.cos(teta));
+		
 		location.set(userLocation.x + x, userLocation.y + y, userLocation.z + z);
-		
-		if (this.pitch > 180)
-			this.pitch -= 360;
 	}
 
-	public void updateUserLocationFromLight(Point3d newLocation, float yaw, float pitch, float roll){
-		if (goodForLocation()){	
-			double rYaw = Math.toRadians(getYawFromLight(yaw, pitch, roll));
-			double rPitch = Math.toRadians(getPitchFromLight(pitch, roll));
-			double z = distance * Math.sin(rPitch);
-			double r = distance * Math.cos(rPitch);
-			
-			double x = r * Math.sin(rYaw);
-			double y = r * Math.cos(rYaw);
+	private void fixOrientationError(double yaw, double pitch, double roll){
+		double pixelPerAngle = config.getHeight()/config.getvAngle();
 
-			newLocation.updateForUser(location.x - x, location.y - y, location.z - z);
-		}
+		fixedY = y-(((pitch*-1)-90)*pixelPerAngle);		
+		fixedX = x + (roll * pixelPerAngle);
 	}
 
-	public double getYawFromLight(float yaw, float pitch, float roll){
+	private void calcYaw(float yaw, float pitch, float roll){
 		double angle;
-		
-		if (config.getCamera() == ImageConfig.Camera.FRONT){
-			double anglePerPixel = config.getvAngle()/config.getHeight();
-			double pixelPerAngle = config.getHeight()/config.getvAngle();
-					
-//			pixelPerAngle = 3.6;
-			
-			double shiftedY = y-((270-pitch)*pixelPerAngle);
-			shiftedY = Math.min(Math.max(0, shiftedY), config.getHeight());
-			
-			double shiftedX = x + (roll * pixelPerAngle);
-			shiftedX = Math.min(Math.max(0, shiftedX), config.getWidth());
-			
-						
-			angle = (450 + yaw - Math.toDegrees(Math.atan2(config.getHeight()/2 - shiftedY, shiftedX - config.getWidth()/2)))%360;
+
+		if (config.getCamera() == ImageConfig.Camera.FRONT) {
+			angle = (450 + yaw - Math.toDegrees(Math.atan2(config.getHeight()/2 - fixedY, fixedX - config.getWidth()/2)))%360;
 		} else 
 			angle = (yaw + (config.gethAngle()/config.getWidth())*(x - (config.getWidth()/2)))%360;
 		if (angle < 0)
 			angle = 360 + angle;
-		return angle;
+		
+		this.yaw = angle;
+		
+		angle = (450 - angle)%360;
+		if (angle > 180)
+			angle -= 360;
+		this.mathYaw = Math.toRadians(angle);
 	}
 
-	public double getPitchFromLight(float pitch, float roll){
-		double angle;
-		
-		if (config.getCamera() == ImageConfig.Camera.FRONT){
-			double distance = Math.sqrt(Math.pow(x - (config.getWidth()/2), 2) + Math.pow(y - (config.getHeight()/2), 2));
-			angle = (config.getvAngle()/config.getHeight())*distance;
-			
-			double fixedPitch;
-			if (pitch > 90)
-				fixedPitch = pitch - angle;
-			else
-				fixedPitch = pitch + angle;
-			
-			angle = 90 - Math.abs(90 - fixedPitch);
-			
+	private void calcPitch(float pitch, float roll){
+		double angle = 0;
+
+		if (config.getCamera() == ImageConfig.Camera.FRONT) {
 			double anglePerPixel = config.getvAngle()/config.getHeight();
-			double pixelPerAngle = config.getHeight()/config.getvAngle();
-						
-			double shiftedY = y-((270-pitch)*pixelPerAngle);
-			shiftedY = Math.min(Math.max(0, shiftedY), config.getHeight());
-			
-			double shiftedX = x + (roll * pixelPerAngle);
-			shiftedX = Math.min(Math.max(0, shiftedX), config.getWidth());
-						
-			distance = Math.sqrt(Math.pow(shiftedX - (config.getWidth()/2), 2) + Math.pow(shiftedY - (config.getHeight()/2), 2));
-			
-			angle = 90 - (anglePerPixel * distance);	
+
+			distance = Math.sqrt(Math.pow(fixedX - (config.getWidth()/2), 2) + Math.pow(fixedY - (config.getHeight()/2), 2));
+			angle = 90 - (anglePerPixel * distance);
 		}		
 		else
 			angle = (pitch + (config.getvAngle()/config.getHeight())*((config.getHeight()/2) - y))%360;
 		if (angle < 0)
 			angle = 360 + angle;
 		
-		return angle;
+		this.pitch = angle;
+		this.mathPitch = Math.toRadians(angle + 90);
 	}
 
-	public void calcDistance(){
-		if (config.getDistanceType() == ImageConfig.DistanceType.EDGE_PIXELS)
-			distance = ImageConfig.CM_PER_PIXEL_DISTANCE_EDGE/numOfEdgePixels;
-		else
-			distance = ImageConfig.CM_PER_PIXEL_DISTANCE_DIAMETER/diameter;
-//		
+	private void calcDistance(){
+		//TODO change the 200 parameter to -> light's height - user's height
+		distance = 200 / Math.sin(Math.toRadians(pitch));
 	}
-	
+
 	public boolean goodForLocation(){
-		if (registeredFrames >= 10 && (!edgeOfScreen || config.getCamera() == ImageConfig.Camera.FRONT 
-				|| config.getDevice() == ImageConfig.Device.ZGPAX))
+		if (pitch > 0 && !edgeOfScreen)
 			return true;
 		return false;
+	}
+
+	public GeometryLight clone(){
+		try {
+			return (GeometryLight)super.clone();
+		} catch (CloneNotSupportedException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 }

@@ -4,26 +4,29 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-import kcg.core.light.ImageConfig;
 import kcg.core.light.GeometryLight;
+import kcg.core.light.ImageConfig;
 import kcg.core.light.Point3d;
 import kcg.core.light.VisualLight;
 
 public class VisualOdometryFilter {
 	private static final String TAG = "LightFilter";
+	private static final int maxDistancePerFrame = 10;
 	private static final int maxDistanceForRegistration = 10;
 	private static final int maxPixelDistanceForRegistration = 30;
 	private static final int maxMassCenterDistanceForRegistration = 10;
 
 	private ArrayList<GeometryLight> lastFrameLights;
 	private ArrayList<GeometryLight> geometryLightsList;
-	private ArrayList<GeometryLight> emptyList;
 
 	private Point3d location;
+	private Point3d prevLocation;
+	private Point3d opticFlow;
 
 	private int generatedNames;
 
 	private ImageConfig config;
+	private int frames;
 
 	public VisualOdometryFilter(ImageConfig config){
 		this.config = config;
@@ -39,179 +42,175 @@ public class VisualOdometryFilter {
 
 	private void init(){
 		generatedNames = 0;
-		emptyList = new ArrayList<GeometryLight>();
 		lastFrameLights = new ArrayList<GeometryLight>();
 		geometryLightsList = new ArrayList<GeometryLight>();
+		opticFlow = new Point3d();
+		prevLocation = new Point3d();
 	}
 
 	public ArrayList<GeometryLight> process(ArrayList<VisualLight> visualListsList, float yaw, float pitch, float roll){
-		emptyList = lastFrameLights;
-		lastFrameLights = geometryLightsList;
-		emptyList.clear();
-		geometryLightsList = emptyList;
+		geometryLightsList = new ArrayList<GeometryLight>();
 
 		registerLights(visualListsList, yaw, pitch, roll);
 
+		if (location.distance3d(prevLocation) > maxDistancePerFrame)
+			location = Point3d.limitDistance(prevLocation, location, maxDistancePerFrame);
+
+		opticFlow.set(location.x - prevLocation.x, location.y - prevLocation.y, location.z - prevLocation.z);
+
+		prevLocation = location;
+
 		ArrayList<GeometryLight> cloneList = (ArrayList<GeometryLight>)geometryLightsList.clone();
+		frames++;
 		return cloneList;
 	}
 
 	private void registerLights(ArrayList<VisualLight> visualLightsList, float yaw, float pitch, float roll){
 		GeometryLight mainLight = null;
-		Point3d newLocation = new Point3d();
+		GeometryLight registeredToMainLight = null;;
 
 		Collections.sort(visualLightsList, lightComparator);
 
+		//convert visual lights to geometry lights
 		for(VisualLight visualLight: visualLightsList){
-			double minBadScore = Double.MAX_VALUE;
-			int id = -1;
-
 			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
+			geometryLightsList.add(geometryLight);
+		}
 
-			for(int j = 0; j < lastFrameLights.size(); j++){
-				GeometryLight lastFrameLight = lastFrameLights.get(j);
-				if (lastFrameLight == null)
+		//register lights with prevFrameLights
+		for(GeometryLight newLight: geometryLightsList) {
+			GeometryLight bestMatch = null;
+			double minBadScore = Double.MAX_VALUE;
+
+			for(GeometryLight prevFrameLight: lastFrameLights) {
+				if (prevFrameLight.usedForRegistration)
 					continue;
-				
+
 				double distance;
-				
+
 				if (config.getCamera() == ImageConfig.Camera.FRONT){
-					distance = pixelDistance(visualLight, lastFrameLight);
+					distance = pixelDistance(newLight, prevFrameLight);
 					if (distance > maxPixelDistanceForRegistration)
 						continue;
 				} else {
-					distance = geometryLight.location.distance(lastFrameLight.location);
+					distance = 0;//newLight.location.distance3d(prevFrameLight.location);
 					if (distance > maxDistanceForRegistration && 
-							pixelDistance(visualLight, lastFrameLight) > maxMassCenterDistanceForRegistration)
+							pixelDistance(newLight, prevFrameLight) > maxMassCenterDistanceForRegistration)
 						continue;
 				}
-				
-				if (distance < minBadScore){
+
+				if (distance < minBadScore) {
 					minBadScore = distance;
-					id = j;
+					bestMatch = prevFrameLight;
 				}
 			}
 
-			if (id != -1){
-				geometryLight.register(lastFrameLights.get(id));
-				lastFrameLights.set(id, null);
-			} else 
-				geometryLight.registrationId = generateName();
-
-			geometryLightsList.add(geometryLight);
-		}
-
-		for(int i = 0; i < geometryLightsList.size(); i++){
-			GeometryLight geometryLight = geometryLightsList.get(i);
-			if (geometryLight != null && geometryLight.goodForLocation()){
-				mainLight = geometryLight;
-				geometryLight.mainLight = true;
-				break;
+			if (bestMatch != null) {
+				newLight.register(bestMatch);
 			}
 		}
 
+		mainLight = calcMainLight(geometryLightsList);
 
-		if (mainLight != null){
-			mainLight.updateUserLocationFromLight(newLocation, yaw, pitch, roll);
-			newLocation.calculateLocation();
+		if (mainLight != null) 
+			mainLight.updateUserLocationFromLight(location);
+
+		//calculate location by main light
+
+		boolean newLightsFound = false;
+
+		//generate registration id for the lights that found no match
+		for(GeometryLight newLight: geometryLightsList) {
+			if (newLight.registrationId == -1) {
+				newLight.calcLocation(location);
+
+				newLight.registrationId = generateName();
+				newLightsFound = true;
+			}
 		}
 
-		if (!newLocation.isBase())
-			location = newLocation;
-		newLocation = null;
+		if (!newLightsFound && geometryLightsList.size() != lastFrameLights.size())
+			newLightsFound = true;
 
-		for(int i = 0; i < geometryLightsList.size(); i++){
-			GeometryLight geometryLight = geometryLightsList.get(i);
-			if (geometryLight != null && mainLight != geometryLight)
-				geometryLight.calcLocation(location, yaw, pitch, roll);
-		}
-
-		for(int i = 0; i < lastFrameLights.size(); i++){
-			GeometryLight geometryLight = lastFrameLights.get(i);
-			if (geometryLight != null){
-				if (!geometryLight.unregister()){
-					GeometryLight newLight = new GeometryLight(config, geometryLight);
-
-					geometryLightsList.add(newLight);
+		//find mainLight's last frame registration
+		if (mainLight != null) {
+			for(GeometryLight prevFrameLight: lastFrameLights) {
+				if (prevFrameLight.registrationId == mainLight.registrationId) {
+					registeredToMainLight = prevFrameLight;
+					break;
 				}
 			}
 		}
-	}
 
-	private void registerLights2(ArrayList<VisualLight> visualLightsList, float yaw, float pitch, float roll){
-		Point3d newLocation = new Point3d();
-
-		Collections.sort(visualLightsList, lightComparator);
-
-		for(VisualLight visualLight: visualLightsList){
-			double minBadScore = Double.MAX_VALUE;
-			int id = -1;
-
-			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
-
-			for(int j = 0; j < lastFrameLights.size(); j++){
-				GeometryLight lastFrameLight = lastFrameLights.get(j);
-				if (lastFrameLight == null)
-					continue;
-				double distance = geometryLight.location.distance(lastFrameLight.location);
-				if (distance > maxDistanceForRegistration && 
-						pixelDistance(visualLight, lastFrameLight) > maxMassCenterDistanceForRegistration)
-					continue;
-				double badScore = distance*100;
-				if (!visualLight.edgeOfScreen){
-					badScore += Math.abs(visualLight.diameter - lastFrameLight.diameter)*50;
-					badScore += Math.abs(visualLight.numOfEdgePixels - lastFrameLight.numOfEdgePixels)*10;
-					badScore += Math.abs(visualLight.numOfPixels - lastFrameLight.numOfPixels);
-				}
-
-				if (badScore < minBadScore){
-					minBadScore = badScore;
-					id = j;
-				}
-
-			}
-
-			if (id != -1){
-				geometryLight.register(lastFrameLights.get(id));
-				geometryLight.updateUserLocationFromLight(newLocation, yaw, pitch, roll);
-				lastFrameLights.set(id, null);
-			} else 
-				geometryLight.registrationId = generateName();
-
-			geometryLightsList.add(geometryLight);
-		}
-
-		newLocation.calculateLocation();
-
-		if (!newLocation.isBase())
-			location = newLocation;
-		newLocation = null;
-
-		for(int i = 0; i < geometryLightsList.size(); i++){
-			GeometryLight geometryLight = geometryLightsList.get(i);
-			if (geometryLight != null)
-				geometryLight.calcLocation(location, yaw, pitch, roll);
-		}
-
-		for(int i = 0; i < lastFrameLights.size(); i++){
-			GeometryLight geometryLight = lastFrameLights.get(i);
-			if (geometryLight != null){
-				if (!geometryLight.unregister()){
-					GeometryLight newLight = new GeometryLight(config, geometryLight);
-
-					geometryLightsList.add(newLight);
-				}
+		//set last frames as the new frames
+		if (newLightsFound || (frames%5) == 4 || registeredToMainLight == null)
+			lastFrameLights = geometryLightsList;
+		else {
+			for(GeometryLight prevFrameLight: lastFrameLights) {
+				prevFrameLight.usedForRegistration = false;
 			}
 		}
 	}
+	
+	private GeometryLight calcMainLight(ArrayList<GeometryLight> lights){
+		double maxFatness = Integer.MIN_VALUE;
+		GeometryLight bestLight = null;
 
-	private double pixelDistance(VisualLight l1, VisualLight l2){
-		return Math.sqrt(Math.pow(l1.y - l2.y, 2) + 
-				Math.pow(l1.x - l2.x, 2));
+		for (int i = 75; i > 0; i-= 15) {
+			for(GeometryLight light: lights) {
+				if (light.pitch >= i && light.fatness > maxFatness && light.goodForLocation() && light.registrationId != -1){
+					maxFatness = light.fatness;
+					bestLight = light;
+				}
+			}
+
+			if (bestLight != null) {
+				bestLight.mainLight = true;
+				return bestLight;
+			}
+		}
+
+		for (int i = 75; i > 0; i-= 15) {
+			for(GeometryLight light: lights) {
+				if (light.pitch >= i && light.fatness > maxFatness && light.registrationId != -1){
+					maxFatness = light.fatness;
+					bestLight = light;
+				}
+			}
+
+			if (bestLight != null) {
+				bestLight.mainLight = true;
+				return bestLight;
+			}
+		}
+
+		return null;
+	}
+	
+	public Point3d getOpticFlow(){
+		return opticFlow;
 	}
 
-	public Point3d getLocation(){
+	private double pixelDistance(GeometryLight l1, GeometryLight l2){
+		return Math.sqrt(Math.pow(l1.fixedY - l2.fixedY, 2) + 
+				Math.pow(l1.fixedX - l2.fixedX, 2));
+	}
+	
+	/**
+	 * @return visual odometry location 3d location in centemeters
+	 */
+
+	public Point3d getLocationInCm(){
 		return location;
+	}
+	
+	/**
+	 * @return visual odometry location 3d location in meters
+	 */
+	public Point3d getLocationInMt(){
+		Point3d loc = new Point3d(location);
+		loc.divide(100);
+		return loc;
 	}
 
 	private int generateName(){
