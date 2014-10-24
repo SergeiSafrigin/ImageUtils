@@ -58,7 +58,7 @@ public class VisualOdometryFilter {
 
 		opticFlow.set(location.x - prevLocation.x, location.y - prevLocation.y, location.z - prevLocation.z);
 
-		prevLocation = location;
+		prevLocation.copy(location);
 
 		ArrayList<GeometryLight> cloneList = (ArrayList<GeometryLight>)geometryLightsList.clone();
 		frames++;
