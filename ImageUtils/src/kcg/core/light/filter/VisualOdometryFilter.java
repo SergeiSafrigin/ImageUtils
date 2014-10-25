@@ -8,14 +8,14 @@ import kcg.core.light.GeometryLight;
 import kcg.core.light.ImageConfig;
 import kcg.core.light.Point3d;
 import kcg.core.light.VisualLight;
+import android.util.Log;
 
 public class VisualOdometryFilter {
 	private static final String TAG = "LightFilter";
 	private static final int maxDistancePerFrame = 10;
-	private static final int maxDistanceForRegistration = 10;
 	private static final int maxPixelDistanceForRegistration = 30;
-	private static final int maxMassCenterDistanceForRegistration = 10;
-
+	private static final int maxAngleChangeForRegistration = 5;
+	
 	private ArrayList<GeometryLight> lastFrameLights;
 	private ArrayList<GeometryLight> geometryLightsList;
 
@@ -74,7 +74,8 @@ public class VisualOdometryFilter {
 		//convert visual lights to geometry lights
 		for(VisualLight visualLight: visualLightsList){
 			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
-			geometryLightsList.add(geometryLight);
+			if (geometryLight.pitch > 0)
+				geometryLightsList.add(geometryLight);
 		}
 
 		//register lights with prevFrameLights
@@ -93,9 +94,8 @@ public class VisualOdometryFilter {
 					if (distance > maxPixelDistanceForRegistration)
 						continue;
 				} else {
-					distance = 0;//newLight.location.distance3d(prevFrameLight.location);
-					if (distance > maxDistanceForRegistration && 
-							pixelDistance(newLight, prevFrameLight) > maxMassCenterDistanceForRegistration)
+					distance = Math.abs(prevFrameLight.yaw - newLight.yaw) + Math.abs(prevFrameLight.pitch - newLight.pitch);
+					if (distance > maxAngleChangeForRegistration)
 						continue;
 				}
 
@@ -111,8 +111,8 @@ public class VisualOdometryFilter {
 		}
 
 		mainLight = calcMainLight(geometryLightsList);
-
-		if (mainLight != null) 
+		
+		if (mainLight != null)
 			mainLight.updateUserLocationFromLight(location);
 
 		//calculate location by main light
@@ -123,7 +123,7 @@ public class VisualOdometryFilter {
 		for(GeometryLight newLight: geometryLightsList) {
 			if (newLight.registrationId == -1) {
 				newLight.calcLocation(location);
-
+				
 				newLight.registrationId = generateName();
 				newLightsFound = true;
 			}
@@ -197,7 +197,7 @@ public class VisualOdometryFilter {
 	}
 	
 	/**
-	 * @return visual odometry location 3d location in centemeters
+	 * @return visual odometry location 3d location in centimeters
 	 */
 
 	public Point3d getLocationInCm(){
@@ -223,6 +223,8 @@ public class VisualOdometryFilter {
 		location.reset();
 		geometryLightsList.clear();
 		location.reset();
+		prevLocation.reset();
+		opticFlow.reset();
 		generatedNames = 0;
 	}
 
