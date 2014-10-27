@@ -109,7 +109,7 @@ public class VisualOdometryFilter {
 				newLight.register(bestMatch);
 			}
 		}
-
+		
 		mainLight = calcMainLight(geometryLightsList);
 		
 		if (mainLight != null)
@@ -152,11 +152,11 @@ public class VisualOdometryFilter {
 		}
 	}
 	
-	private GeometryLight calcMainLight(ArrayList<GeometryLight> lights){
+	private GeometryLight calcMainLight(ArrayList<GeometryLight> lights) {
 		double maxFatness = Integer.MIN_VALUE;
 		GeometryLight bestLight = null;
-
-		for (int i = 75; i > 0; i-= 15) {
+		
+		for (int i = 80; i > 0; i-= 10) {
 			for(GeometryLight light: lights) {
 				if (light.pitch >= i && light.fatness > maxFatness && light.goodForLocation() && light.registrationId != -1){
 					maxFatness = light.fatness;
@@ -169,8 +169,10 @@ public class VisualOdometryFilter {
 				return bestLight;
 			}
 		}
+		
+		maxFatness = Integer.MIN_VALUE;
 
-		for (int i = 75; i > 0; i-= 15) {
+		for (int i = 80; i > 0; i-= 10) {
 			for(GeometryLight light: lights) {
 				if (light.pitch >= i && light.fatness > maxFatness && light.registrationId != -1){
 					maxFatness = light.fatness;
@@ -183,10 +185,9 @@ public class VisualOdometryFilter {
 				return bestLight;
 			}
 		}
-
 		return null;
 	}
-	
+		
 	public Point3d getOpticFlow(){
 		return opticFlow;
 	}

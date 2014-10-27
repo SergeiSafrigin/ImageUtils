@@ -124,14 +124,7 @@ public class GeometryLight extends VisualLight {
 
 	private void calcDistance(){
 		//TODO change the 200 parameter to -> light's height - user's height
-		if (config.getCamera() == ImageConfig.Camera.FRONT)
-			distance = 150 / Math.sin(Math.toRadians(pitch));
-		else {
-			if (config.getDistanceType() == ImageConfig.DistanceType.EDGE_PIXELS)
-				distance = ImageConfig.CM_PER_PIXEL_DISTANCE_EDGE/numOfEdgePixels;
-			else
-				distance = ImageConfig.CM_PER_PIXEL_DISTANCE_DIAMETER/diameter;
-		}
+		distance = 150 / Math.sin(Math.toRadians(pitch));
 	}
 
 	public boolean goodForLocation(){
