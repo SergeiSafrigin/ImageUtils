@@ -14,7 +14,8 @@ public class VisualOdometryFilter {
 	private static final String TAG = "LightFilter";
 	private static final int maxDistancePerFrame = 10;
 	private static final int maxPixelDistanceForRegistration = 30;
-	private static final int maxAngleChangeForRegistration = 5;
+	private static final int maxAngleChangeForRegistration = 8;
+	private static final int maxDistanceForMainLight = 1000;
 	
 	private ArrayList<GeometryLight> lastFrameLights;
 	private ArrayList<GeometryLight> geometryLightsList;
@@ -74,8 +75,9 @@ public class VisualOdometryFilter {
 		//convert visual lights to geometry lights
 		for(VisualLight visualLight: visualLightsList){
 			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
-			if (geometryLight.pitch > 0)
+			if (geometryLight.pitch > 0) {
 				geometryLightsList.add(geometryLight);
+			}
 		}
 
 		//register lights with prevFrameLights
@@ -158,7 +160,7 @@ public class VisualOdometryFilter {
 		
 		for (int i = 80; i > 0; i-= 10) {
 			for(GeometryLight light: lights) {
-				if (light.pitch >= i && light.fatness > maxFatness && light.goodForLocation() && light.registrationId != -1){
+				if (location.distance3d(light.location) < maxDistanceForMainLight && light.pitch >= i && light.fatness > maxFatness && light.goodForLocation() && light.registrationId != -1){
 					maxFatness = light.fatness;
 					bestLight = light;
 				}
@@ -174,7 +176,7 @@ public class VisualOdometryFilter {
 
 		for (int i = 80; i > 0; i-= 10) {
 			for(GeometryLight light: lights) {
-				if (light.pitch >= i && light.fatness > maxFatness && light.registrationId != -1){
+				if (location.distance3d(light.location) < maxDistanceForMainLight && light.pitch >= i && light.fatness > maxFatness && light.registrationId != -1){
 					maxFatness = light.fatness;
 					bestLight = light;
 				}
