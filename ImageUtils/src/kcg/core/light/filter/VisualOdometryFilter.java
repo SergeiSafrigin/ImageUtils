@@ -15,8 +15,9 @@ public class VisualOdometryFilter {
 	private static final int maxDistancePerFrame = 10;
 	private static final int maxPixelDistanceForRegistration = 30;
 	private static final int maxAngleChangeForRegistration = 8;
+	private static final int maxDistanceForRegistration = 30;
 	private static final int maxDistanceForMainLight = 1000;
-	
+
 	private ArrayList<GeometryLight> lastFrameLights;
 	private ArrayList<GeometryLight> geometryLightsList;
 
@@ -76,6 +77,7 @@ public class VisualOdometryFilter {
 		for(VisualLight visualLight: visualLightsList){
 			GeometryLight geometryLight = new GeometryLight(config, visualLight, location, yaw, pitch, roll);
 			if (geometryLight.pitch > 0) {
+				geometryLight.calcLocation(location);
 				geometryLightsList.add(geometryLight);
 			}
 		}
@@ -96,9 +98,15 @@ public class VisualOdometryFilter {
 					if (distance > maxPixelDistanceForRegistration)
 						continue;
 				} else {
-					distance = Math.abs(prevFrameLight.yaw - newLight.yaw) + Math.abs(prevFrameLight.pitch - newLight.pitch);
-					if (distance > maxAngleChangeForRegistration)
-						continue;
+					if (geometryLightsList.size() > 2){
+						distance = Math.abs(prevFrameLight.yaw - newLight.yaw) + Math.abs(prevFrameLight.pitch - newLight.pitch);
+						if (distance > maxAngleChangeForRegistration)
+							continue;
+					} else {
+						distance = newLight.location.distance3d(prevFrameLight.location);
+						if (distance > maxDistanceForRegistration)
+							continue;
+					}
 				}
 
 				if (distance < minBadScore) {
@@ -111,9 +119,9 @@ public class VisualOdometryFilter {
 				newLight.register(bestMatch);
 			}
 		}
-		
+
 		mainLight = calcMainLight(geometryLightsList);
-		
+
 		if (mainLight != null)
 			mainLight.updateUserLocationFromLight(location);
 
@@ -124,8 +132,8 @@ public class VisualOdometryFilter {
 		//generate registration id for the lights that found no match
 		for(GeometryLight newLight: geometryLightsList) {
 			if (newLight.registrationId == -1) {
-				newLight.calcLocation(location);
-				
+//				newLight.calcLocation(location);
+
 				newLight.registrationId = generateName();
 				newLightsFound = true;
 			}
@@ -153,11 +161,11 @@ public class VisualOdometryFilter {
 			}
 		}
 	}
-	
+
 	private GeometryLight calcMainLight(ArrayList<GeometryLight> lights) {
 		double maxFatness = Integer.MIN_VALUE;
 		GeometryLight bestLight = null;
-		
+
 		for (int i = 80; i > 0; i-= 10) {
 			for(GeometryLight light: lights) {
 				if (location.distance3d(light.location) < maxDistanceForMainLight && light.pitch >= i && light.fatness > maxFatness && light.goodForLocation() && light.registrationId != -1){
@@ -171,7 +179,7 @@ public class VisualOdometryFilter {
 				return bestLight;
 			}
 		}
-		
+
 		maxFatness = Integer.MIN_VALUE;
 
 		for (int i = 80; i > 0; i-= 10) {
@@ -189,7 +197,7 @@ public class VisualOdometryFilter {
 		}
 		return null;
 	}
-		
+
 	public Point3d getOpticFlow(){
 		return opticFlow;
 	}
@@ -198,7 +206,7 @@ public class VisualOdometryFilter {
 		return Math.sqrt(Math.pow(l1.fixedY - l2.fixedY, 2) + 
 				Math.pow(l1.fixedX - l2.fixedX, 2));
 	}
-	
+
 	/**
 	 * @return visual odometry location 3d location in centimeters
 	 */
@@ -206,7 +214,7 @@ public class VisualOdometryFilter {
 	public Point3d getLocationInCm(){
 		return location;
 	}
-	
+
 	/**
 	 * @return visual odometry location 3d location in meters
 	 */
